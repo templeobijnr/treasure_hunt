@@ -1,4 +1,8 @@
-from rest_framework.decorators import api_view, permission_classes
+# fix_errors.py
+import os
+
+# Fix the views.py file
+views_content = '''from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser, AllowAny
 from rest_framework.response import Response
 from django.contrib.auth.models import User
@@ -144,3 +148,10 @@ def calculate_distance(lat1, lng1, lat2, lng2):
          math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(delta_lng/2)**2)
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return R * c
+'''
+
+# Write the fixed views.py
+with open('game/views.py', 'w') as f:
+    f.write(views_content)
+
+print("Fixed game/views.py")
