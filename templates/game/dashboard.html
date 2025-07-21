@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Admin - AR Treasure Hunt</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        .admin-header {
+            background: #343a40;
+            color: white;
+            padding: 20px 0;
+        }
+        #map {
+            height: 500px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+        }
+        .treasure-card {
+            margin-bottom: 10px;
+            border-left: 4px solid #28a745;
+        }
+        .treasure-card.inactive {
+            border-left-color: #dc3545;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-header">
+        <div class="container">
+            <h1>🎮 Game Admin Panel</h1>
+            <p>Manage treasures and game settings</p>
+        </div>
+    </div>
+
+    <div class="container-fluid my-4">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🗺️ Treasure Map</h3>
+                        <small class="text-muted">Click anywhere on the map to place a new treasure</small>
+                    </div>
+                    <div class="card-body">
+                        <div id="map"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h3>➕ Create Treasure</h3>
+                    </div>
+                    <div class="card-body">
+                        <form id="treasure-form">
+                            <div class="mb-3">
+                                <label class="form-label">Treasure Name *</label>
+                                <input type="text" class="form-control" id="treasure-name" 
+                                       placeholder="e.g., Golden Coin" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" id="treasure-description" rows="3"
+                                          placeholder="A shiny golden coin hidden behind the statue..."></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Points Value</label>
+                                <input type="number" class="form-control" id="treasure-points" 
+                                       value="100" min="1" max="1000">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Discovery Radius (meters)</label>
+                                <input type="number" class="form-control" id="treasure-radius" 
+                                       value="50" min="5" max="500">
+                                <small class="text-muted">How close players need to be to find it</small>
+                            </div>
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label">Latitude</label>
+                                    <input type="number" class="form-control" id="treasure-lat" 
+                                           step="any" readonly>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Longitude</label>
+                                    <input type="number" class="form-control" id="treasure-lng" 
+                                           step="any" readonly>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-success w-100 mt-3">
+                                🏆 Create Treasure
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3>📋 Existing Treasures</h3>
+                        <button onclick="loadTreasures()" class="btn btn-sm btn-outline-primary">🔄</button>
+                    </div>
+                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                        <div id="treasures-list">
+                            <div class="text-center">
+                                <div class="spinner-border spinner-border-sm" role="status"></div>
+                                <p class="mt-2">Loading treasures...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🎯 Quick Actions</h3>
+                    </div>
+                    <div class="card-body">
+                        <a href="/admin/" class="btn btn-primary me-2">Django Admin</a>
+                        <a href="/leaderboard/" class="btn btn-info me-2">View Leaderboard</a>
+                        <a href="/play/" class="btn btn-success me-2">Test Game</a>
+                        <a href="/" class="btn btn-outline-secondary">Home</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Initialize map (default to New York City)
+        const map = L.map('map').setView([40.7128, -74.0060], 13);
+        
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        let selectedLocation = null;
+        let tempMarker = null;
+
+        // Map click handler
+        map.on('click', function(e) {
+            selectedLocation = e.latlng;
+            document.getElementById('treasure-lat').value = e.latlng.lat.toFixed(6);
+            document.getElementById('treasure-lng').value = e.latlng.lng.toFixed(6);
+            
+            // Remove previous temp marker
+            if (tempMarker) {
+                map.removeLayer(tempMarker);
+            }
+            
+            // Add new temp marker
+            tempMarker = L.marker([e.latlng.lat, e.latlng.lng], {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                })
+            }).addTo(map).bindPopup('📍 New treasure location<br>Click "Create Treasure" to save').openPopup();
+        });
+
+        // Form submission
+        document.getElementById('treasure-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (!selectedLocation) {
+                alert('Please click on the map to select a location for the treasure!');
+                return;
+            }
+            
+            const treasureData = {
+                name: document.getElementById('treasure-name').value,
+                description: document.getElementById('treasure-description').value,
+                points: parseInt(document.getElementById('treasure-points').value),
+                radius: parseFloat(document.getElementById('treasure-radius').value),
+                latitude: parseFloat(document.getElementById('treasure-lat').value),
+                longitude: parseFloat(document.getElementById('treasure-lng').value)
+            };
+
+            try {
+                const response = await fetch('/api/admin/create-treasure/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify(treasureData)
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ Treasure "${treasureData.name}" created successfully!`);
+                    
+                    // Reset form
+                    document.getElementById('treasure-form').reset();
+                    document.getElementById('treasure-points').value = 100;
+                    document.getElementById('treasure-radius').value = 50;
+                    
+                    // Remove temp marker
+                    if (tempMarker) {
+                        map.removeLayer(tempMarker);
+                        tempMarker = null;
+                    }
+                    selectedLocation = null;
+                    
+                    // Reload treasures
+                    loadTreasures();
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('❌ Network error. Please try again.');
+            }
+        });
+
+        // Load existing treasures
+        async function loadTreasures() {
+            try {
+                const response = await fetch('/api/treasures/');
+                const treasures = await response.json();
+                
+                // Clear existing treasure markers (but keep temp marker)
+                map.eachLayer(layer => {
+                    if (layer instanceof L.Marker && layer !== tempMarker) {
+                        map.removeLayer(layer);
+                    }
+                });
+                
+                // Add treasure markers
+                treasures.forEach(treasure => {
+                    const markerColor = treasure.is_active ? 'green' : 'grey';
+                    const icon = L.icon({
+                        iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${markerColor}.png`,
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    });
+                    
+                    const marker = L.marker([treasure.latitude, treasure.longitude], { icon })
+                        .bindPopup(`
+                            <b>🏆 ${treasure.name}</b><br>
+                            📝 ${treasure.description}<br>
+                            💰 Points: ${treasure.points}<br>
+                            📍 Radius: ${treasure.discovery_radius}m<br>
+                            ⚡ Status: ${treasure.is_active ? 'Active' : 'Inactive'}
+                        `)
+                        .addTo(map);
+                    
+                    // Add circle to show discovery radius
+                    L.circle([treasure.latitude, treasure.longitude], {
+                        color: treasure.is_active ? '#28a745' : '#dc3545',
+                        fillColor: treasure.is_active ? '#28a745' : '#dc3545',
+                        fillOpacity: 0.1,
+                        radius: treasure.discovery_radius
+                    }).addTo(map);
+                });
+                
+                // Update treasures list
+                const listEl = document.getElementById('treasures-list');
+                if (treasures.length === 0) {
+                    listEl.innerHTML = `
+                        <div class="text-center text-muted">
+                            <p>No treasures created yet.</p>
+                            <small>Click on the map to place your first treasure!</small>
+                        </div>
+                    `;
+                } else {
+                    listEl.innerHTML = treasures.map(t => {
+                        const statusBadge = t.is_active 
+                            ? '<span class="badge bg-success">Active</span>' 
+                            : '<span class="badge bg-secondary">Inactive</span>';
+                            
+                        return `
+                            <div class="card treasure-card ${t.is_active ? '' : 'inactive'}">
+                                <div class="card-body py-2">
+                                    <h6 class="card-title mb-1">🏆 ${t.name} ${statusBadge}</h6>
+                                    <small class="text-muted d-block">${t.description}</small>
+                                    <small><strong>💰 ${t.points} pts</strong> | 📍 ${t.discovery_radius}m radius</small>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+                
+            } catch (error) {
+                console.error('Error loading treasures:', error);
+                document.getElementById('treasures-list').innerHTML = `
+                    <div class="alert alert-danger">
+                        <small>Error loading treasures. Please refresh the page.</small>
+                    </div>
+                `;
+            }
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Load treasures on page load
+        loadTreasures();
+    </script>
+</body>
+</html>
