@@ -6,10 +6,9 @@ from django.contrib.auth.models import User
 from .models import Treasure, Player, Discovery
 import math
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
 def health_check(request):
-  return HttpResponse('Django is working')
+    """Simple health check endpoint"""
+    return HttpResponse('OK', status=200)
 
 @api_view(['GET'])
 @permission_classes([AllowAny])

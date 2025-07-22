@@ -3,8 +3,9 @@ from django.views.generic import TemplateView
 from . import views
 
 urlpatterns = [
-
-    path('health/', views.health_check,name='health_check'),
+    # Health check endpoint
+    path('health/', views.health_check, name='health_check'),
+    
     # API endpoints
     path('api/nearby-treasures/', views.get_nearby_treasures, name='nearby_treasures'),
     path('api/discover-treasure/', views.discover_treasure, name='discover_treasure'),
