@@ -2,7 +2,7 @@
 cmds = ["pip install -r requirements.txt"]
 
 [start]
-cmd = "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn treasure_hunt.wsgi --host 0.0.0.0 --port $PORT"
+cmd = "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn treasure_hunt.wsgi --bind 0.0.0.0:$PORT"
 
 [variables]
 NIXPACKS_PYTHON_VERSION = "3.11"
