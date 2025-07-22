@@ -1,1 +1,1 @@
-web: gunicorn treasure_hunt.wsgi
+web: python manage.py migrate && gunicorn treasure_hunt.wsgi --host 0.0.0.0 --port $PORT
