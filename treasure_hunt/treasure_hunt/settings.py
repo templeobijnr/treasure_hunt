@@ -124,7 +124,7 @@ if os.path.exists(static_dir):
     STATICFILES_DIRS = [static_dir]
 
 # Whitenoise settings
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # Security settings for production
 if not DEBUG and os.environ.get('RAILWAY_ENVIRONMENT'):
